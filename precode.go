@@ -21,10 +21,8 @@ func Generator(ctx context.Context, ch chan<- int64, fn func(int64)) {
 	for {
 		select {
 		case ch <- cnt:
-			mu.Lock()
 			fn(cnt)
 			cnt++
-			mu.Unlock()
 
 		case <-ctx.Done():
 			close(ch)
@@ -60,8 +58,10 @@ func main() {
 
 	// генерируем числа, считая параллельно их количество и сумму
 	go Generator(ctx, chIn, func(i int64) {
+		mu.Lock()
 		inputSum += i
 		inputCount++
+		mu.Unlock()
 	})
 
 	const NumOut = 5 // количество обрабатывающих горутин и каналов
@@ -81,23 +81,6 @@ func main() {
 	var wg sync.WaitGroup
 
 	// 4. Собираем числа из каналов outs
-	// var_1
-	/*for ind, ch := range outs {
-		wg.Add(1)
-		go func(in <-chan int64, i int64) {
-			for {
-				val, ok := <-in
-				if !ok {
-					wg.Done()
-					return
-				}
-				amounts[ind]++
-				chOut <- val
-			}
-		}(ch, int64(ind))
-	}*/
-
-	//  var_2
 	for ind, ch := range outs {
 		wg.Add(1)
 		go func(in <-chan int64, i int64) {
@@ -131,7 +114,7 @@ func main() {
 
 	// проверка результатов
 	if inputSum != sum {
-		log.Fatalf("Ошибка: суммы чисел не равны: %d != %d\t разница = %d\n", inputSum, sum, inputSum-sum)
+		log.Fatalf("Ошибка: суммы чисел не равны: %d != %d\n", inputSum, sum)
 	}
 	if inputCount != count {
 		log.Fatalf("Ошибка: количество чисел не равно: %d != %d\n", inputCount, count)
